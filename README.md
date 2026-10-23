@@ -1,1 +1,503 @@
-# Projeto-Biblioteca
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+typedef struct Livro{
+    int codigo;
+    char titulo[100];
+    char autor[100];
+    int ano;
+    int qtd;
+    int disp;
+    struct Livro *proximo;
+} Livro;
+
+typedef struct Lista{
+    int tamanho;
+    int proximo_codigo; // Controla o próximo código gerado automaticamente
+    Livro *primeiro;
+    Livro *ultimo;
+} Lista;
+
+Lista *criar_lista() {
+    Lista *lista = malloc(sizeof(Lista));
+    if (lista == NULL) {
+        return NULL;
+    }
+    lista->primeiro = NULL;
+    lista->ultimo = NULL;
+    lista->tamanho = 0;
+    lista->proximo_codigo = 100000; // Código inicial padrão
+    return lista;
+}
+
+Livro *inserir_fim(Lista *lista, const char *titulo, const char *autor, int ano, int qtd) {
+    if (lista == NULL) {
+        return NULL;
+    }
+
+    Livro *novo = malloc(sizeof(Livro));
+    if (novo == NULL) {
+        return NULL;
+    }
+
+    novo->codigo = lista->proximo_codigo++; // Atribui e incrementa automaticamente
+    strcpy(novo->titulo, titulo);
+    strcpy(novo->autor, autor);
+    novo->ano = ano;
+    novo->qtd = qtd;
+    novo->disp = qtd;
+    novo->proximo = NULL;
+
+    if (lista->tamanho == 0) {
+        lista->primeiro = novo;
+        lista->ultimo = novo;
+    } else {
+        lista->ultimo->proximo = novo;
+        lista->ultimo = novo;
+    }
+
+    lista->tamanho++;
+    return novo;
+}
+
+// Função auxiliar para buscar livro por título exato (usada nos empréstimos/devoluções)
+Livro *buscar_por_titulo(Lista *lista, const char *titulo) {
+    if (lista == NULL) return NULL;
+    
+    Livro *atual = lista->primeiro;
+    while (atual != NULL) {
+        if (strcmp(atual->titulo, titulo) == 0) {
+            return atual;
+        }
+        atual = atual->proximo;
+    }
+    return NULL;
+}
+
+// Funções de busca
+Livro *buscar_por_codigo(Lista *lista, int codigo_busca) {
+    if (lista == NULL) {
+        return NULL;
+    }
+
+    Livro *atual = lista->primeiro;
+
+    while (atual != NULL) {
+        if (atual->codigo == codigo_busca) {
+            return atual;
+        }
+        atual = atual->proximo;
+    }
+
+    return NULL;
+}
+
+void buscar_por_titulo_ou_autor(Lista *lista, const char *termo) {
+    Livro *atual = lista->primeiro;
+    int encontrados = 0;
+
+    printf("\n--- RESULTADOS DA BUSCA ---\n");
+    while (atual != NULL) {
+        if (strstr(atual->titulo, termo) != NULL || strstr(atual->autor, termo) != NULL) {
+            printf("Codigo: %d | Titulo: %s | Autor: %s | Ano: %d | Disponiveis: %d/%d\n",
+                atual->codigo, atual->titulo, atual->autor, atual->ano, atual->disp, atual->qtd);
+            encontrados++;
+        }
+        atual = atual->proximo;
+    }
+
+    if (encontrados == 0) {
+        printf("Nenhum livro encontrado com esse termo.\n");
+    }
+}
+
+// Função de atualização (Case 4)
+void atualizar_informacoes(Lista *lista) {
+    int codigo, opcao, info_nova;
+
+    printf("\nDigite o código do livro que deseja atualizar: ");
+    scanf("%d", &codigo);
+    Livro *l = buscar_por_codigo(lista, codigo); 
+    if (l == NULL) {
+        printf("\nNão há nenhum livro com esse código na lista.\n");
+        return;
+    }
+
+    printf("\n1 - Código");
+    printf("\n2 - Título");
+    printf("\n3 - Autor");
+    printf("\n4 - Ano de publicação");
+    printf("\n5 - Quantidade");
+    printf("\n6 - Disponibilidade");
+    printf("\n Qual informação você deseja atualizar? ");
+    scanf("%d", &opcao);
+
+    if (opcao == 1) {
+        printf("Insira o novo código: ");
+        scanf("%d", &info_nova);
+        if (info_nova != l->codigo && buscar_por_codigo(lista, info_nova) != NULL) {
+            printf("\nEste código já está cadastrado.\n");
+            return;
+        }
+        l->codigo = info_nova;
+    } else if (opcao == 2) {
+        printf("Insira o novo título: ");
+        scanf(" %99[^\n]", l->titulo);      
+    } else if (opcao == 3) {
+        printf("Insira o novo autor: ");
+        scanf(" %99[^\n]", l->autor);      
+    } else if (opcao == 4) {
+        printf("Insira o novo ano de publicação: ");
+        scanf("%d", &l->ano);
+    } else if (opcao == 5) {
+        printf("Insira a nova quantidade: ");
+        scanf("%d", &info_nova);
+        int emprestados = l->qtd - l->disp;
+        if (info_nova < emprestados) {
+            printf("\nA quantidade não pode ser menor que os livros emprestados (%d).\n", emprestados);
+            return;
+        }
+        l->qtd = info_nova;
+        l->disp = info_nova - emprestados;
+    } else if (opcao == 6) {
+        printf("Insira a nova disponibilidade: ");
+        scanf("%d", &info_nova);
+        if (info_nova < 0 || info_nova > l->qtd) {
+            printf("\nA disponibilidade deve estar entre 0 e %d.\n", l->qtd);
+            return;
+        }
+        l->disp = info_nova;
+    } else {
+        printf("\nOpção inválida.\n");
+        return;
+    }
+
+    printf("\nAs informações do livro foram atualizadas!\n");
+}
+
+// Função de exclusão (Case 5)
+void excluirLivro(Lista *lista, int codigo) {
+    Livro *p = lista->primeiro, *ant = NULL;
+
+    while (p != NULL && p->codigo != codigo) {
+        ant = p;
+        p = p->proximo;
+    }
+
+    if (p == NULL) {
+        printf("Livro nao encontrado!\n");
+        return;
+    }
+
+    if (ant == NULL)
+        lista->primeiro = p->proximo;
+    else
+        ant->proximo = p->proximo;
+
+    if (p == lista->ultimo)
+        lista->ultimo = ant;
+
+    free(p);
+    lista->tamanho--;
+
+    if (lista->primeiro == NULL)
+        lista->ultimo = NULL;
+
+    printf("Livro excluido!\n");
+}
+
+// Funções de ordenação (Case 8)
+void ordenar_nome(Lista *lista){
+    if(lista == NULL || lista->primeiro == NULL || lista->primeiro->proximo == NULL){
+        return;
+    }
+    
+    int trocou;
+    do{
+        trocou = 0;
+        Livro *anterior = NULL;
+        Livro *atual = lista->primeiro;
+        Livro *proximo = atual->proximo;
+        
+        while (proximo != NULL){
+            if(strcmp(atual->titulo, proximo->titulo) > 0){
+                atual->proximo = proximo->proximo;
+                proximo->proximo = atual;
+            
+                if(anterior == NULL){
+                lista->primeiro = proximo;
+                } else {
+                anterior->proximo = proximo;
+                }
+            
+                anterior = proximo;
+                proximo = atual->proximo;
+                trocou = 1;
+            } else {
+                anterior = atual;
+                atual = proximo;
+                proximo = proximo->proximo;
+            }
+        }
+    }while (trocou);
+    
+    Livro *temp = lista->primeiro;
+    while (temp != NULL && temp->proximo != NULL){
+        temp = temp->proximo;
+    }
+    lista->ultimo = temp;
+    
+    printf("\nLivros ordenados por titulo com sucesso!\n");
+}
+
+void ordenar_codigo(Lista *lista){
+    if(lista == NULL || lista->primeiro == NULL || lista->primeiro->proximo == NULL){
+        return;
+    }
+    
+    int trocou;
+    do{
+    trocou = 0;
+        Livro *anterior = NULL;
+        Livro *atual = lista->primeiro;
+        Livro *proximo = atual->proximo;
+
+        while (proximo != NULL) {
+            if (atual->codigo > proximo->codigo) {
+                atual->proximo = proximo->proximo;
+                proximo->proximo = atual;
+
+                if (anterior == NULL) {
+                    lista->primeiro = proximo;
+                } else {
+                    anterior->proximo = proximo;
+                }
+
+                anterior = proximo;
+                proximo = atual->proximo;
+                trocou = 1;
+            } else {
+                anterior = atual;
+                atual = proximo;
+                proximo = proximo->proximo;
+            }
+        }
+    } while (trocou);
+
+    Livro *temp = lista->primeiro;
+    while (temp != NULL && temp->proximo != NULL) {
+        temp = temp->proximo;
+    }
+    lista->ultimo = temp;
+
+    printf("\nLivros ordenados por código com sucesso!\n");
+}
+
+int main() {
+    int continuar;
+    Lista *lista = criar_lista();
+
+    printf("Bem vindo ao Babilônicos, qual é a função que você deseja?\n");
+    do {
+        printf("\n1 - Cadastrar livro\n");
+        printf("2 - Listar livros\n");
+        printf("3 - Buscar livro\n");
+        printf("4 - Atualizar informações\n");
+        printf("5 - Excluir livro\n");
+        printf("6 - Registrar empréstimo\n");
+        printf("7 - Registrar devolução\n");
+        printf("8 - Ordenar livros\n");
+
+        printf("\nEscolha uma opção: ");
+        int op;
+        scanf("%d", &op);
+
+        switch(op) {
+            case 1: {
+                int aaa, qqq;
+                char nnn[100];
+                char att[100];
+
+                printf("\nInsira o ano de publicação:\n");
+                scanf("%d", &aaa);
+                printf("\nInsira a quantidade:\n");
+                scanf("%d", &qqq);
+
+                while (getchar() != '\n');
+
+                printf("\nInsira o título do livro:\n");
+                fgets(nnn, sizeof(nnn), stdin);
+                nnn[strcspn(nnn, "\n")] = '\0';
+
+                printf("\nInsira o autor:\n");
+                fgets(att, sizeof(att), stdin);
+                att[strcspn(att, "\n")] = '\0';
+
+                inserir_fim(lista, nnn, att, aaa, qqq);
+                printf("\nLivro cadastrado com sucesso! (Código gerado automaticamente)\n");
+                break;
+            }
+            
+            case 2: {
+                Livro *atual = lista->primeiro;
+
+                if (atual == NULL) {
+                    printf("\nNenhum livro cadastrado.\n");
+                    break;
+                }
+
+                while (atual != NULL) {
+                    printf("\nCodigo: %d\n", atual->codigo);
+                    printf("Titulo: %s\n", atual->titulo);
+                    printf("Autor: %s\n", atual->autor);
+                    printf("Ano: %d\n", atual->ano);
+                    printf("Quantidade: %d\n", atual->qtd);
+                    printf("Disponiveis: %d\n", atual->disp);
+                    printf("-----------------------------\n");
+
+                    atual = atual->proximo;
+                }
+                break;
+            }
+
+            case 3: {
+                if (lista->tamanho == 0) {
+                    printf("\nA lista de livros esta vazia!\n");
+                    break;
+                }
+
+                int tipo_busca;
+                int cod;
+                char termo[100];
+
+                printf("\nComo deseja buscar?\n");
+                printf("1 - Codigo\n");
+                printf("2 - Titulo ou Autor\n");
+                printf("Escolha: ");
+                scanf("%d", &tipo_busca);
+
+                if (tipo_busca == 1) {
+                    printf("\nInsira o codigo do livro: ");
+                    scanf("%d", &cod);
+                    while (getchar() != '\n');
+
+                    Livro *resultado = buscar_por_codigo(lista, cod);
+                    if (resultado != NULL) {
+                        printf("\n[Livro Encontrado!]\n");
+                        printf("Titulo: %s\n", resultado->titulo);
+                        printf("Autor: %s\n", resultado->autor);
+                        printf("Ano: %d\n", resultado->ano);
+                        printf("Disponiveis: %d / Total: %d\n", resultado->disp, resultado->qtd);
+                    } else {
+                        printf("\nNenhum livro encontrado com o codigo %d.\n", cod);
+                    }
+                }
+                else if (tipo_busca == 2) {
+                    while (getchar() != '\n');
+                    printf("\nInsira o titulo ou autor: ");
+                    fgets(termo, sizeof(termo), stdin);
+                    termo[strcspn(termo, "\n")] = '\0';
+
+                    buscar_por_titulo_ou_autor(lista, termo);
+                }
+                else {
+                    printf("\nOpcao Invalida!\n");
+                }
+
+                break;
+            }
+
+            case 4: {
+                atualizar_informacoes(lista);
+                break;
+            }
+
+            case 5: {
+                int codigo;
+                printf("Codigo para excluir: ");
+                scanf("%d", &codigo);
+                excluirLivro(lista, codigo);
+                break;
+            }
+
+            case 6: {
+                char nome_busca[100];
+                
+                while (getchar() != '\n');
+                
+                printf("\nInsira o título do livro para empréstimo:\n");
+                fgets(nome_busca, sizeof(nome_busca), stdin);
+                nome_busca[strcspn(nome_busca, "\n")] = '\0';
+                
+                Livro *alvo = buscar_por_titulo(lista, nome_busca);
+                
+                if (alvo == NULL) {
+                    printf("\nLivro não encontrado no sistema!\n");
+                } else if (alvo->disp > 0) {
+                    alvo->disp--;
+                    printf("\nEmpréstimo realizado com sucesso! Exemplares disponíveis: %d\n", alvo->disp);
+                } else {
+                    printf("\nNão há exemplares disponíveis no momento.\n");
+                }
+                break;
+            }
+
+            case 7: {
+                char nome_busca[100];
+                
+                while (getchar() != '\n');
+                
+                printf("\nInsira o título do livro para devolução:\n");
+                fgets(nome_busca, sizeof(nome_busca), stdin);
+                nome_busca[strcspn(nome_busca, "\n")] = '\0';
+                
+                Livro *alvo = buscar_por_titulo(lista, nome_busca);
+                
+                if (alvo == NULL) {
+                    printf("\nLivro não encontrado no sistema!\n");
+                } else if (alvo->disp < alvo->qtd) {
+                    alvo->disp++;
+                    printf("\nDevolução registrada com sucesso! Exemplares disponíveis: %d\n", alvo->disp);
+                } else {
+                    printf("\nErro: Todos os exemplares já estão na biblioteca.\n");
+                }
+                break;
+            }
+
+            case 8: {
+                if (lista->tamanho == 0) {
+                    printf("\nNenhum livro cadastrado para ordenar.\n");
+                    break;
+                }
+
+                int sub_op;
+                printf("\nComo Deseja Ordenar?\n");
+                printf("1 - Ordenar por Código\n");
+                printf("2 - Ordenar por Título (Nome)\n");
+                printf("Escolha uma opção: ");
+                scanf("%d", &sub_op);
+
+                if (sub_op == 1) {
+                    ordenar_codigo(lista);
+                } else if (sub_op == 2) {
+                    ordenar_nome(lista);
+                } else {
+                    printf("\nOpção inválida.\n");
+                }
+                break;
+            }
+
+            default:
+                printf("\nOpção inválida.\n");
+        }
+
+        printf("\nDeseja continuar?\n");
+        printf("1 -> Continuar.\n");
+        printf("2 -> Encerrar.\n");
+        scanf("%d", &continuar);
+
+    } while(continuar == 1);
+
+    return 0;
+}
